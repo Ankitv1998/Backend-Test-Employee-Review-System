@@ -1,70 +1,32 @@
 const express = require('express');
-require('dotenv').config();
-const expressLayouts = require('express-ejs-layouts');
-const path = require('path');
-const db = require('./configs/db_connection'); // database configuration file
-
-
-//passport and session requirements
+const router = express.Router();
 const passport = require('passport');
-const localStrategy = require('./configs/passport_local_strategy');
-const cookieParser = require('cookie-parser');
-const session = require('express-session');
-const MongoStore = require('connect-mongo');
 
+//controllers
+const homepageController = require('../controllers/homepage_controllers');
+const employeeController = require('../controllers/employee_controllers')
 
+//other route files
+const userRoutes = require('./user');
 
-const PORT = process.env.ERS_PORT;
+// signin | signup | home routes
+router.get('/', homepageController.renderHomePage);
+router.get('/signin', homepageController.renderSignInPage);
+router.get('/signup', homepageController.renderSignUpPage);
+router.get('/create-company', homepageController.renderCreateCompanyPage);
 
-
-const app = express();
-
-app.use(express.json()); // convert json into javascript object
-app.use(express.urlencoded({ extended: true })); // decode encoded url request from client
-app.use(cookieParser());
-
-
-// session setup
-app.use(session({
-    name: 'ERS',
-    secret: process.env.ERS_SESSION_SECRETE,
-    saveUninitialized: false,
-    resave: false,
-    cookie: {
-        maxAge: 1000 * 60 * 60 * 24,
-    },
-    store: MongoStore.create({
-        mongoUrl: process.env.ERS_DB_URI,
-        collectionName: 'session',
-        autoRemove: 'native'
-    })
+// form submission
+router.post('/create-company', employeeController.createCompany);
+router.post('/create-employee', employeeController.createEmployee);
+router.post('/signin', passport.authenticate('local', {
+    successRedirect: '/user/employee',
+    failureRedirect: '/signup'
 }));
 
-// passport middlewares
-app.use(passport.initialize());
-app.use(passport.session());
-app.use(passport.setAuthenticatedUser);
+// user logout route
+router.get('/signout', passport.checkAuthentication, employeeController.singout);
 
 
-app.use(express.static(path.join(__dirname, 'public'))); // public | static file 
+router.use('/user', userRoutes); // seperating /user routes to different file
 
-// ejs setup
-app.use(expressLayouts);
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
-// extract scripts and styles from webpage body
-app.set('layout extractStyles', true);
-app.set('layout extractScripts', true);
-
-
-app.use('/', require('./routes/index')); // setting up routing file
-
-
-app.listen(PORT, (err) => {
-    if (err) {
-        console.log('Error while starting server: ', err);
-    } else {
-        console.log(`server is up and running at port ${PORT}`);
-    }
-})
+module.exports = router;
